@@ -4,31 +4,45 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>BucketList AI — dream it, plan it, do it</title>
+<meta name="description" content="Capture your bucket-list dreams, move them from dreaming to planning to done, and log the memory when you complete one. 100% local, no account.">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+
 <header class="topbar">
   <div class="topbar-inner">
-    <h1 class="brand">BucketList AI</h1>
-    <p class="tagline">Collect your dreams, plan the adventure, log the memory.</p>
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>
+      </span>
+      <div class="brand-text">
+        <h1>BucketList <em>AI</em></h1>
+        <p class="tagline">Dream it, plan it, do it — the expedition journal for your life.</p>
+      </div>
+    </div>
+    <div class="mast-side">
+      <span class="local-badge">100% local · no account</span>
+    </div>
   </div>
 </header>
 
 <main class="wrap">
-  <section id="dreamHead" class="card"></section>
 
-  <nav class="tabs">
+  <section id="dreamHead" class="expedition" aria-live="polite"></section>
+
+  <nav class="tabs" aria-label="Views">
     <button id="tabbtn-mine" class="active" data-tab="mine">My bucket list</button>
     <button id="tabbtn-ideas" data-tab="ideas">Idea bank</button>
-    <button id="resetAll" class="danger ghost right">Start over</button>
+    <button id="resetAll" class="btn danger ghost right">Start over</button>
   </nav>
 
   <section id="tab-mine"></section>
   <section id="tab-ideas" class="hidden"></section>
+
 </main>
 
 <footer class="foot">
-  <p>100% local — your dreams never leave this browser. No account, no API keys.</p>
+  <p>Your dreams never leave this browser. No account, no API keys, no tracking.</p>
 </footer>
 
 <script src="js/ideabank.js"></script>

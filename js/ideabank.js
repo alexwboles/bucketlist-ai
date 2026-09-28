@@ -2,7 +2,7 @@
 /* cost/effort: 1 = low, 2 = medium, 3 = high */
 
 var IDEA_CATEGORIES = ["travel", "adventure", "learn", "give", "create"];
-var CATEGORY_LABELS = { travel: "✈️ Travel", adventure: "🧗 Adventure", learn: "📚 Learn", give: "💛 Give", create: "🎨 Create" };
+var CATEGORY_LABELS = { travel: "Travel", adventure: "Adventure", learn: "Learn", give: "Give", create: "Create" };
 
 var IDEA_BANK = [
   // TRAVEL (21)

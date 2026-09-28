@@ -74,7 +74,7 @@ flow "labels render correctly" "
   const D=String.fromCharCode(36);
   if(L.costLabel(1)!==D||L.costLabel(3)!==D+D+D) throw new Error('cost labels');
   if(L.effortLabel(1)!=='Easy'||L.effortLabel(3)!=='Epic') throw new Error('effort labels');
-  if(L.STATE_LABELS.done!=='\u2705 Done') throw new Error('state label');"
+  if(L.STATE_LABELS.done!=='Done'||L.STATE_LABELS.dreaming!=='Dreaming') throw new Error('state label');"
 
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))

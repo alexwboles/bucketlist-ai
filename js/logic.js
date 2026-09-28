@@ -7,7 +7,7 @@ function getIdeas() {
 }
 
 var STATES = ["dreaming", "planning", "done"];
-var STATE_LABELS = { dreaming: "💭 Dreaming", planning: "🗺️ Planning", done: "✅ Done" };
+var STATE_LABELS = { dreaming: "Dreaming", planning: "Planning", done: "Done" };
 
 function validCategory(cat) {
   var cats = (typeof IDEA_CATEGORIES !== "undefined") ? IDEA_CATEGORIES : ["travel", "adventure", "learn", "give", "create"];
