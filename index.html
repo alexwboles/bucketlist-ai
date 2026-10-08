@@ -33,7 +33,10 @@
   <nav class="tabs" aria-label="Views">
     <button id="tabbtn-mine" class="active" data-tab="mine">My bucket list</button>
     <button id="tabbtn-ideas" data-tab="ideas">Idea bank</button>
-    <button id="resetAll" class="btn danger ghost right">Start over</button>
+    <button id="backupBtn" class="toolbtn right">Backup</button>
+    <button id="restoreBtn" class="toolbtn">Restore</button>
+    <input type="file" id="restoreFile" accept="application/json,.json" class="hidden">
+    <button id="resetAll" class="btn danger ghost">Start over</button>
   </nav>
 
   <section id="tab-mine"></section>

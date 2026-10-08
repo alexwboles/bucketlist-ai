@@ -116,6 +116,33 @@ body {
 .tabs > button[data-tab].active { background: var(--ink); border-color: var(--ink); color: #fff; box-shadow: var(--shadow); }
 .tabs > button[data-tab]:focus-visible { outline: none; box-shadow: var(--ring); }
 .tabs .right { margin-left: auto; }
+.tabs .toolbtn {
+  border: 1px solid var(--border); background: var(--card);
+  padding: 10px 20px; border-radius: 0; cursor: pointer;
+  font-size: 14px; font-weight: 650; color: var(--ink-soft); font-family: var(--sans);
+  transition: background .15s, color .15s, border-color .15s;
+}
+.tabs .toolbtn:hover { border-color: var(--sand-deep); background: #fff; }
+.tabs .toolbtn.right { margin-left: auto; }
+#restoreFile.hidden { display: none; }
+
+/* ---------- target dates & due badges ---------- */
+.target-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 10px 0 2px; }
+.target-label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--muted); margin: 0; }
+.target-label input { width: auto; padding: 7px 10px; font-size: 13.5px; }
+.pill.due-overdue { background: #fdecea; color: var(--danger); border-color: #dfa9a3; }
+.pill.due-soon { background: var(--accent-soft); color: var(--accent-deep); border-color: var(--accent-line); }
+.pill.due-later { background: var(--sand); color: var(--ink-soft); border-color: var(--sand-deep); }
+
+/* ---------- memory journal ---------- */
+.journal-month {
+  font-family: var(--serif); font-size: 15px; font-weight: 700; color: var(--accent-deep);
+  margin: 18px 0 10px; display: flex; align-items: center; gap: 10px;
+}
+.journal-month::before { content: ""; width: 8px; height: 8px; border-radius: 0; background: var(--accent); flex: none; }
+
+.mine-tools .row { margin-top: 0; }
+.mine-tools input, .mine-tools select { max-width: 420px; }
 
 /* ---------- buttons ---------- */
 button { font-family: var(--sans); }

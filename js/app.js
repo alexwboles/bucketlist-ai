@@ -8,7 +8,7 @@
     catch (e) { return {}; }
   }
   function save(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
-  var state = Object.assign({ dreams: [], tab: "mine", fCat: "all", fCost: "", fEffort: "", fQ: "" }, load());
+  var state = Object.assign({ dreams: [], tab: "mine", fCat: "all", fCost: "", fEffort: "", fQ: "", dSort: "added", dQ: "" }, load());
   function persist() { save(state); }
 
   function esc(s) {
@@ -44,6 +44,16 @@
       html += '<div class="row"><input data-mem="' + d.id + '" placeholder="Log the memory…" value="' + esc(d.memory || "") + '" maxlength="500">' +
         '<button data-savemem="' + d.id + '">Save memory</button></div>';
     }
+    if (d.state !== "done" && showActions) {
+      var ds = dueStatus(d);
+      var badge = "";
+      if (d.targetDate) {
+        var word = ds === "overdue" ? "Overdue" : ds === "soon" ? "Due soon" : "Target";
+        badge = '<span class="pill due-' + ds + '">' + word + " · " + esc(fmtTarget(d.targetDate)) + "</span> ";
+      }
+      html += '<div class="target-row">' + badge +
+        '<label class="target-label">Target date <input type="date" data-target="' + d.id + '" value="' + esc(d.targetDate || "") + '"></label></div>';
+    }
     if (showActions) {
       html += '<div class="row">';
       if (d.state !== "done") {
@@ -58,7 +68,17 @@
   function renderMine() {
     var host = document.getElementById("tab-mine");
     var cats = (typeof IDEA_CATEGORIES !== "undefined") ? IDEA_CATEGORIES : [];
-    var html = '<form id="dreamForm" class="card form-grid">' +
+    var sortOpts = [
+      ["added", "Oldest first"], ["added-new", "Newest first"], ["title", "Title A–Z"],
+      ["target", "Nearest target date"], ["cost", "Cheapest first"], ["effort", "Easiest first"]
+    ];
+    var html = '<div class="card mine-tools"><div class="row">' +
+      '<input id="dSearch" placeholder="Search my dreams…" value="' + esc(state.dQ) + '" maxlength="80">' +
+      '<select id="dSort">' + sortOpts.map(function (o) {
+        return '<option value="' + o[0] + '"' + (state.dSort === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
+      }).join("") + "</select></div></div>";
+
+    html += '<form id="dreamForm" class="card form-grid">' +
       '<input id="dreamTitle" placeholder="My dream (e.g. See the Northern Lights)" required maxlength="120">' +
       '<select id="dreamCat">' + cats.map(function (c) { return '<option value="' + c + '">' + esc(catLabel(c)) + "</option>"; }).join("") + "</select>" +
       '<select id="dreamCost"><option value="1">$ — cheap</option><option value="2" selected>$$ — moderate</option><option value="3">$$$ — splurge</option></select>' +
@@ -66,18 +86,52 @@
       '<button type="submit">Add dream</button></form>';
 
     var order = { planning: 0, dreaming: 1, done: 2 };
-    var dreams = state.dreams.slice().sort(function (a, b) { return order[a.state] - order[b.state]; });
-    if (!dreams.length) {
-      html += '<p class="muted">No dreams yet — add one above, or grab ideas from the <strong>Idea bank</strong> tab.</p>';
+    var dreams = searchDreams(state.dreams, state.dQ);
+    dreams = dreams.slice().sort(function (a, b) { return order[a.state] - order[b.state]; });
+    var groups = { planning: [], dreaming: [], done: [] };
+    dreams.forEach(function (d) { groups[d.state].push(d); });
+    Object.keys(groups).forEach(function (k) { groups[k] = sortDreams(groups[k], state.dSort); });
+    var anyDreams = dreams.length > 0;
+    if (!anyDreams) {
+      html += state.dQ
+        ? '<p class="muted">No dreams match "' + esc(state.dQ) + '".</p>'
+        : '<p class="muted">No dreams yet — add one above, or grab ideas from the <strong>Idea bank</strong> tab.</p>';
     } else {
       ["planning", "dreaming", "done"].forEach(function (st) {
-        var group = dreams.filter(function (d) { return d.state === st; });
+        var group = groups[st];
         if (!group.length) return;
         html += "<h3>" + esc(STATE_LABELS[st]) + " (" + group.length + ")</h3>";
         group.forEach(function (d) { html += dreamCard(d, true); });
       });
     }
+
+    // memory journal: completion timeline
+    var tl = completionTimeline(state.dreams);
+    if (tl.length) {
+      html += "<h3>Memory journal</h3>" + '<p class="muted">Every dream you finished, in the order you lived it.</p>';
+      tl.forEach(function (g) {
+        html += '<h4 class="journal-month">' + esc(g.label) + " (" + g.dreams.length + ")</h4>";
+        g.dreams.forEach(function (d) { html += dreamCard(d, false); });
+      });
+    }
     host.innerHTML = html;
+
+    document.getElementById("dSort").addEventListener("change", function (e) {
+      state.dSort = e.target.value; persist(); renderMine();
+    });
+    document.getElementById("dSearch").addEventListener("input", function (e) {
+      state.dQ = e.target.value; persist();
+      clearTimeout(host._dt);
+      host._dt = setTimeout(renderMine, 300);
+    });
+    host.querySelectorAll("[data-target]").forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        try {
+          state.dreams = setTargetDate(state.dreams, inp.getAttribute("data-target"), inp.value);
+          persist(); renderMine();
+        } catch (err) { alert(err.message); renderMine(); }
+      });
+    });
 
     document.getElementById("dreamForm").addEventListener("submit", function (e) {
       e.preventDefault();
@@ -186,9 +240,35 @@
     });
     document.getElementById("resetAll").addEventListener("click", function () {
       if (confirm("Clear all dreams and start over?")) {
-        state = { dreams: [], tab: "mine", fCat: "all", fCost: "", fEffort: "", fQ: "" };
+        state = { dreams: [], tab: "mine", fCat: "all", fCost: "", fEffort: "", fQ: "", dSort: "added", dQ: "" };
         persist(); renderAll();
       }
+    });
+    document.getElementById("backupBtn").addEventListener("click", function () {
+      var blob = new Blob([backupToJSON(state.dreams)], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "bucketlist-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    });
+    document.getElementById("restoreBtn").addEventListener("click", function () {
+      document.getElementById("restoreFile").click();
+    });
+    document.getElementById("restoreFile").addEventListener("change", function (e) {
+      var f = e.target.files[0];
+      if (!f) return;
+      var r = new FileReader();
+      r.onload = function () {
+        try {
+          state.dreams = restoreFromJSON(r.result);
+          persist(); renderHeader(); renderMine();
+          alert("Restored " + state.dreams.length + " dreams from backup.");
+        } catch (err) { alert("Restore failed: " + err.message); }
+      };
+      r.readAsText(f);
+      e.target.value = "";
     });
     renderAll();
   });

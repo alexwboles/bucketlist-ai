@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BucketList AI e2e tests — 7 flows exercising real logic in Node. Exit non-zero on failure.
+# BucketList AI e2e tests — 12 flows exercising real logic in Node. Exit non-zero on failure.
 set -u
 cd "$(dirname "$0")/.."
 pass=0; fail=0
@@ -75,6 +75,69 @@ flow "labels render correctly" "
   if(L.costLabel(1)!==D||L.costLabel(3)!==D+D+D) throw new Error('cost labels');
   if(L.effortLabel(1)!=='Easy'||L.effortLabel(3)!=='Epic') throw new Error('effort labels');
   if(L.STATE_LABELS.done!=='Done'||L.STATE_LABELS.dreaming!=='Dreaming') throw new Error('state label');"
+
+flow "sort + search: dreamer finds and orders their list" "
+  const L=require('./js/logic.js');
+  let d=[ ];
+  d=L.addDream(d,{title:'Climb Kilimanjaro',cat:'adventure',cost:3,effort:3,targetDate:'2027-08-01'});
+  d=L.addDream(d,{title:'Bake sourdough weekly',cat:'learn',cost:1,effort:1,targetDate:'2026-11-15'});
+  d=L.addDream(d,{title:'Visit Kyoto in cherry season',cat:'travel',cost:2,effort:2,targetDate:'2027-04-01'});
+  const hits=L.searchDreams(d,'kyoto');
+  if(hits.length!==1||hits[0].title!=='Visit Kyoto in cherry season') throw new Error('search');
+  const byTarget=L.sortDreams(d,'target').map(x=>x.title);
+  if(byTarget[0]!=='Bake sourdough weekly'||byTarget[2]!=='Climb Kilimanjaro') throw new Error('sort target: '+byTarget);
+  const byEffort=L.sortDreams(d,'effort').map(x=>x.effort).join(',');
+  if(byEffort!=='1,2,3') throw new Error('sort effort: '+byEffort);"
+
+flow "target-date journey: set -> due soon -> done clears due state" "
+  const L=require('./js/logic.js');
+  let d=L.addDream([ ],{title:'Run a marathon',cat:'adventure'});
+  d=L.setTargetDate(d,d[0].id,'2026-10-25');
+  if(L.dueStatus(d[0],'2026-10-07')!=='soon') throw new Error('should be soon');
+  d=L.setTargetDate(d,d[0].id,'2026-09-01');
+  if(L.dueStatus(d[0],'2026-10-07')!=='overdue') throw new Error('should be overdue');
+  d=L.advanceState(d,d[0].id); d=L.advanceState(d,d[0].id,'Finished!','2026-10-07');
+  if(L.dueStatus(d[0],'2026-10-07')!=='none') throw new Error('done dreams never due');
+  if(L.fmtTarget(d[0].targetDate)!=='Sep 1, 2026') throw new Error('fmtTarget');"
+
+flow "backup/restore survives a full wipe" "
+  const L=require('./js/logic.js');
+  let d=[ ];
+  d=L.addDream(d,{title:'Write a novel',cat:'create',cost:1,effort:3,targetDate:'2027-01-31'});
+  d=L.addDream(d,{title:'See aurora',cat:'travel',cost:2,effort:2});
+  d=L.advanceState(d,d[1].id); d=L.advanceState(d,d[1].id,'Green curtains of light','2026-02-20');
+  const snap=L.backupToJSON(d);
+  let wiped=[ ]; // user hits Start over
+  wiped=L.restoreFromJSON(snap);
+  if(wiped.length!==2) throw new Error('count');
+  const aurora=wiped.filter(x=>x.title==='See aurora')[0];
+  if(aurora.state!=='done'||aurora.memory!=='Green curtains of light'||aurora.completedOn!=='2026-02-20') throw new Error('aurora lost');
+  const novel=wiped.filter(x=>x.title==='Write a novel')[0];
+  if(novel.targetDate!=='2027-01-31') throw new Error('novel target lost');
+  if(L.dueStatus(novel,'2026-10-07')!=='later') throw new Error('novel due state');"
+
+flow "memory journal timeline orders completions newest-first" "
+  const L=require('./js/logic.js');
+  let d=[ ];
+  const done=(t,date,mem)=>{ d=L.addDream(d,{title:t,cat:'travel'}); const id=d[d.length-1].id; d=L.advanceState(d,id); d=L.advanceState(d,id,mem,date); };
+  done('Old hike','2025-05-01','muddy boots');
+  done('Spring sail','2026-04-12','dolphins at dawn');
+  done('Autumn trek','2026-09-30','golden larches');
+  const tl=L.completionTimeline(d);
+  const months=tl.map(g=>g.month).join(',');
+  if(months!=='2026-09,2026-04,2025-05') throw new Error('order: '+months);
+  if(tl[0].dreams[0].memory!=='golden larches') throw new Error('memory not attached');
+  if(L.completionTimeline([ ]).length!==0) throw new Error('empty timeline');"
+
+flow "restore rejects corrupt and non-bucketlist files" "
+  const L=require('./js/logic.js');
+  for(const badText of ['','{broken','[]'.slice(0,1),'{\"dreams\":{}}','[{\"title\":\"No cat\",\"cat\":\"zzz\"}]']){
+    let threw=false;
+    try{ L.restoreFromJSON(badText); }catch(e){ threw=true; }
+    if(!threw) throw new Error('accepted garbage: '+badText.slice(0,24));
+  }
+  const okBack=L.restoreFromJSON(JSON.stringify([{title:'Plain dream'}]));
+  if(okBack.length!==1||okBack[0].cat!=='travel'||okBack[0].state!=='dreaming') throw new Error('plain-array restore');"
 
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))
