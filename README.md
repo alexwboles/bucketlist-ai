@@ -10,7 +10,10 @@ Dream it, plan it, do it. Capture your bucket-list dreams, move them from dreami
 - **State machine** — dreaming → planning → done, with completion dates and memory notes on every completed dream
 - **105-idea bank** — 21 curated ideas per category; search, filter by category / max cost / max effort, or hit "Surprise me" for 3 random picks
 - **One-click adoption** — add any idea to your list instantly
-- **Progress dashboard** — dream counts, completion %, and a live progress bar
+- **Progress dashboard** — dream counts, completion %, a live progress bar, and total actually spent living your dreams
+- **Dream journal** — dated progress notes on any dream, so the story behind each memory is kept
+- **Actual spend tracking** — log what a dream really cost vs. its cost-band estimate, with an estimated-vs-actual rollup
+- **Share your journey** — one click copies a text summary (done dreams with memories + what's in the works)
 
 ## Run it
 

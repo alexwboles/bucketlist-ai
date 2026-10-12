@@ -185,6 +185,72 @@ function completionTimeline(dreams) {
 }
 
 // Backup: serialize dreams to a JSON string. Restore: parse + validate + normalize.
+// --- actual spend tracking -------------------------------------------
+// Cost-band midpoints used for rough estimates: $=cheap, $$=moderate, $$$=splurge.
+var COST_MIDPOINT = { 1: 250, 2: 1500, 3: 6000 };
+
+/** Set the real amount spent on a dream (null/empty clears it). */
+function setActualCost(dreams, id, amount) {
+  var list = dreams || [];
+  var d = null;
+  list.forEach(function (x) { if (x.id === id) d = x; });
+  if (!d) throw new Error("Dream not found");
+  var v = (amount == null || amount === "") ? null : parseFloat(amount);
+  d.actualCost = (v == null || isNaN(v) || v < 0) ? null : Math.round(v * 100) / 100;
+  return list;
+}
+
+/** Spend rollup over done dreams: estimated (band midpoints) vs actual. */
+function spendStats(dreams) {
+  var done = (dreams || []).filter(function (d) { return d.state === "done"; });
+  var estimated = 0, actual = 0, tracked = 0;
+  done.forEach(function (d) {
+    estimated += COST_MIDPOINT[d.cost] || 0;
+    if (d.actualCost != null) { actual += d.actualCost; tracked++; }
+  });
+  return {
+    done: done.length, tracked: tracked,
+    estimated: estimated, actual: Math.round(actual * 100) / 100
+  };
+}
+
+// --- dream journal ----------------------------------------------------
+// Dated progress notes on any dream — the story behind the memory.
+
+/** Append a journal entry to a dream. */
+function addJournalEntry(dreams, id, text) {
+  var t = String(text || "").trim();
+  if (!t) throw new Error("Journal entry needs some text");
+  var list = dreams || [];
+  var d = null;
+  list.forEach(function (x) { if (x.id === id) d = x; });
+  if (!d) throw new Error("Dream not found");
+  d.journal = d.journal || [];
+  d.journal.push({ ts: new Date().toISOString(), text: t.slice(0, 500) });
+  return list;
+}
+
+// --- shareable summary ------------------------------------------------
+
+/** Plain-text journey summary: done dreams with memories + what's in the works. */
+function dreamsToShareText(dreams) {
+  var list = dreams || [];
+  var done = list.filter(function (d) { return d.state === "done"; });
+  var planning = list.filter(function (d) { return d.state === "planning"; });
+  var lines = ["My bucket list — " + done.length + " of " + list.length + " dreams lived."];
+  if (done.length) {
+    lines.push("", "DONE:");
+    done.forEach(function (d) {
+      lines.push("- " + d.title + (d.memory ? " — " + d.memory : ""));
+    });
+  }
+  if (planning.length) {
+    lines.push("", "IN THE WORKS:");
+    planning.forEach(function (d) { lines.push("- " + d.title); });
+  }
+  return lines.join("\n");
+}
+
 function backupToJSON(dreams) {
   return JSON.stringify({ app: "bucketlist-ai", version: 1, exportedAt: new Date().toISOString(), dreams: dreams || [] }, null, 2);
 }
@@ -209,7 +275,13 @@ function restoreFromJSON(text) {
       id: d.id || (Date.now().toString(36) + "-" + i),
       title: title, cat: cat, cost: cost, effort: effort, state: st,
       memory: String(d.memory || ""), completedOn: String(d.completedOn || ""),
-      targetDate: target, addedAt: d.addedAt || new Date().toISOString()
+      targetDate: target, addedAt: d.addedAt || new Date().toISOString(),
+      actualCost: (d.actualCost != null && isFinite(parseFloat(d.actualCost)) && parseFloat(d.actualCost) >= 0)
+        ? Math.round(parseFloat(d.actualCost) * 100) / 100 : null,
+      journal: Array.isArray(d.journal)
+        ? d.journal.filter(function (j) { return j && String(j.text || "").trim(); })
+            .slice(0, 200).map(function (j) { return { ts: String(j.ts || ""), text: String(j.text).slice(0, 500) }; })
+        : []
     };
   });
 }
@@ -220,6 +292,7 @@ if (typeof module !== "undefined" && module.exports) {
     advanceState, setMemory, filterIdeas, surpriseMe, stats,
     costLabel, effortLabel,
     sortDreams, searchDreams, setTargetDate, dueStatus, fmtTarget,
-    completionTimeline, backupToJSON, restoreFromJSON
+    completionTimeline, backupToJSON, restoreFromJSON,
+    setActualCost, spendStats, addJournalEntry, dreamsToShareText
   };
 }

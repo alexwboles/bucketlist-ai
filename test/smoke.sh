@@ -114,5 +114,52 @@ check "new DOM ids present (dSearch/dSort in app.js; backup/restore in index.htm
   for(const id of ['dSearch','dSort']){ if(app.indexOf('id=\"'+id+'\"')<0) throw new Error('app.js missing #'+id); }
   for(const id of ['backupBtn','restoreBtn','restoreFile']){ if(html.indexOf('id=\"'+id+'\"')<0) throw new Error('index.html missing #'+id); }"
 
+check "actual spend tracking: setActualCost + spendStats" node -e "
+  const L=require('./js/logic.js');
+  let ds=L.addDream([],{title:'See fjords',cat:'travel',cost:'3',effort:'2'});
+  ds=L.advanceState(ds,ds[0].id,null,null);
+  ds=L.advanceState(ds,ds[0].id,'amazing', '2026-09-01');
+  L.setActualCost(ds,ds[0].id,4200);
+  if(ds[0].actualCost!==4200) throw new Error('not set');
+  const sp=L.spendStats(ds);
+  if(sp.done!==1||sp.tracked!==1||sp.actual!==4200||sp.estimated!==6000) throw new Error(JSON.stringify(sp));
+  L.setActualCost(ds,ds[0].id,'');
+  if(ds[0].actualCost!==null) throw new Error('clear failed');
+  L.setActualCost(ds,ds[0].id,-5);
+  if(ds[0].actualCost!==null) throw new Error('negative accepted');
+  try{ L.setActualCost(ds,'nope',10); throw new Error('bad id accepted'); }catch(e){ if(!/not found/i.test(e.message)) throw e; }"
+check "dream journal appends dated entries" node -e "
+  const L=require('./js/logic.js');
+  let ds=L.addDream([],{title:'Learn piano',cat:'learn',cost:'1',effort:'2'});
+  L.addJournalEntry(ds,ds[0].id,'Booked first lesson');
+  L.addJournalEntry(ds,ds[0].id,'Can play scales now');
+  if(ds[0].journal.length!==2) throw new Error('count');
+  if(!ds[0].journal[0].ts||ds[0].journal[0].text!=='Booked first lesson') throw new Error('entry shape');
+  try{ L.addJournalEntry(ds,ds[0].id,'  '); throw new Error('blank accepted'); }catch(e){ if(!/text/i.test(e.message)) throw e; }"
+check "dreamsToShareText summarizes the journey" node -e "
+  const L=require('./js/logic.js');
+  let ds=L.addDream([],{title:'See fjords',cat:'travel',cost:'3',effort:'2'});
+  ds=L.addDream(ds,{title:'Run marathon',cat:'adventure',cost:'1',effort:'3'});
+  ds=L.advanceState(ds,ds[0].id,null,null);
+  ds=L.advanceState(ds,ds[0].id,'breathtaking','2026-09-01');
+  ds=L.advanceState(ds,ds[1].id,null,null);
+  const t=L.dreamsToShareText(ds);
+  if(!t.includes('1 of 2 dreams lived')) throw new Error('headline: '+t);
+  if(!t.includes('- See fjords — breathtaking')) throw new Error('done line');
+  if(!t.includes('- Run marathon')) throw new Error('planning line');"
+check "backup/restore round-trips journal + actualCost" node -e "
+  const L=require('./js/logic.js');
+  let ds=L.addDream([],{title:'See fjords',cat:'travel',cost:'3',effort:'2'});
+  L.addJournalEntry(ds,ds[0].id,'note one');
+  L.setActualCost(ds,ds[0].id,1234);
+  const back=L.restoreFromJSON(L.backupToJSON(ds));
+  if(back[0].journal.length!==1||back[0].journal[0].text!=='note one') throw new Error('journal lost');
+  if(back[0].actualCost!==1234) throw new Error('cost lost');"
+check "app.js wires journal, cost, and share controls" node -e "
+  const fs=require('fs');
+  const app=fs.readFileSync('js/app.js','utf8');
+  for(const fn of ['addJournalEntry(','setActualCost(','spendStats(','dreamsToShareText(','shareJourney']){
+    if(app.indexOf(fn)<0) throw new Error('app.js missing '+fn); }"
+
 echo "--- smoke: $pass passed, $fail failed ---"
 exit $((fail>0))

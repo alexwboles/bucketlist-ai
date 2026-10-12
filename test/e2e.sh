@@ -139,5 +139,20 @@ flow "restore rejects corrupt and non-bucketlist files" "
   const okBack=L.restoreFromJSON(JSON.stringify([{title:'Plain dream'}]));
   if(okBack.length!==1||okBack[0].cat!=='travel'||okBack[0].state!=='dreaming') throw new Error('plain-array restore');"
 
+flow "actual spend + journal + share end to end" "
+  const L=require('./js/logic.js');
+  let ds=L.addDream([ ],{title:'See the Northern Lights',cat:'travel',cost:'3',effort:'2'});
+  L.addJournalEntry(ds,ds[0].id,'Booked flights for February');
+  ds=L.advanceState(ds,ds[0].id,'',null);
+  ds=L.advanceState(ds,ds[0].id,'Worth every penny','2026-02-20');
+  L.setActualCost(ds,ds[0].id,2800);
+  const sp=L.spendStats(ds);
+  if(sp.done!==1||sp.actual!==2800) throw new Error('spend: '+JSON.stringify(sp));
+  if(ds[0].journal.length!==1) throw new Error('journal lost through state change');
+  const t=L.dreamsToShareText(ds);
+  if(!t.includes('Worth every penny')) throw new Error('memory missing from share text');
+  const back=L.restoreFromJSON(L.backupToJSON(ds));
+  if(back[0].actualCost!==2800||back[0].journal.length!==1) throw new Error('backup lost new fields');"
+
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))

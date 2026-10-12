@@ -22,11 +22,13 @@
 
   function renderHeader() {
     var s = stats(state.dreams);
+    var sp = spendStats(state.dreams);
     document.getElementById("dreamHead").innerHTML =
       '<div class="hero-stats">' +
       '<div class="stat"><span class="stat-num">' + s.total + '</span><span class="stat-lbl">dreams</span></div>' +
       '<div class="stat"><span class="stat-num">' + s.done + '</span><span class="stat-lbl">completed</span></div>' +
       '<div class="stat"><span class="stat-num">' + s.pct + '%</span><span class="stat-lbl">done</span></div>' +
+      (sp.tracked ? '<div class="stat"><span class="stat-num">$' + sp.actual.toLocaleString() + '</span><span class="stat-lbl">spent living dreams</span></div>' : "") +
       "</div>" +
       '<div class="progress"><div class="progress-fill" style="width:' + s.pct + '%"></div></div>';
   }
@@ -43,6 +45,9 @@
       html += '<div class="memory">' + (d.memory ? esc(d.memory) : '<span class="muted">No memory logged yet — add one below.</span>') + "</div>";
       html += '<div class="row"><input data-mem="' + d.id + '" placeholder="Log the memory…" value="' + esc(d.memory || "") + '" maxlength="500">' +
         '<button data-savemem="' + d.id + '">Save memory</button></div>';
+      html += '<div class="row costrow"><label>Actually spent $<input type="number" min="0" step="1" data-cost="' + d.id + '" value="' +
+        (d.actualCost != null ? esc(d.actualCost) : "") + '" placeholder="what it really cost"></label>' +
+        '<button data-savecost="' + d.id + '">Save</button></div>';
     }
     if (d.state !== "done" && showActions) {
       var ds = dueStatus(d);
@@ -55,6 +60,17 @@
         '<label class="target-label">Target date <input type="date" data-target="' + d.id + '" value="' + esc(d.targetDate || "") + '"></label></div>';
     }
     if (showActions) {
+      // journal: the story behind the memory, on any dream
+      var journal = d.journal || [];
+      if (journal.length) {
+        html += '<div class="journal">' + journal.slice().reverse().map(function (j) {
+          return '<div class="jentry"><span class="jdate">' + esc(String(j.ts || "").slice(0, 10)) +
+            '</span>' + esc(j.text) + '</div>';
+        }).join("") + "</div>";
+      }
+      html += '<div class="row"><input data-journal="' + d.id + '" placeholder="Log progress on this dream…" maxlength="500">' +
+        '<button data-savejournal="' + d.id + '">Log</button></div>';
+
       html += '<div class="row">';
       if (d.state !== "done") {
         var next = d.state === "dreaming" ? "Start planning →" : "Mark done ✓";
@@ -76,7 +92,15 @@
       '<input id="dSearch" placeholder="Search my dreams…" value="' + esc(state.dQ) + '" maxlength="80">' +
       '<select id="dSort">' + sortOpts.map(function (o) {
         return '<option value="' + o[0] + '"' + (state.dSort === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
-      }).join("") + "</select></div></div>";
+      }).join("") + "</select>" +
+      '<button id="shareJourney" title="Copy a text summary of your journey">Share my journey</button></div>';
+    var sp0 = spendStats(state.dreams);
+    if (sp0.done) {
+      html += '<p class="muted small">Completed dreams: est. $' + sp0.estimated.toLocaleString() +
+        ' by cost band · actually spent $' + sp0.actual.toLocaleString() +
+        (sp0.tracked < sp0.done ? ' (' + sp0.tracked + ' of ' + sp0.done + ' with costs logged)' : '') + '.</p>';
+    }
+    html += "</div>";
 
     html += '<form id="dreamForm" class="card form-grid">' +
       '<input id="dreamTitle" placeholder="My dream (e.g. See the Northern Lights)" required maxlength="120">' +
@@ -172,6 +196,45 @@
         state.dreams = setMemory(state.dreams, id, input.value);
         persist(); renderMine();
       });
+    });
+    host.querySelectorAll("[data-savejournal]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-savejournal");
+        var input = host.querySelector('input[data-journal="' + id + '"]');
+        try {
+          state.dreams = addJournalEntry(state.dreams, id, input.value);
+          persist(); renderHeader(); renderMine();
+        } catch (err) { alert(err.message); }
+      });
+    });
+    host.querySelectorAll("[data-savecost]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-savecost");
+        var input = host.querySelector('input[data-cost="' + id + '"]');
+        try {
+          state.dreams = setActualCost(state.dreams, id, input.value);
+          persist(); renderHeader(); renderMine();
+        } catch (err) { alert(err.message); }
+      });
+    });
+    var shareBtn = document.getElementById("shareJourney");
+    if (shareBtn) shareBtn.addEventListener("click", function () {
+      var text = dreamsToShareText(state.dreams);
+      var done = function (ok) {
+        shareBtn.textContent = ok ? "Copied!" : "Copy failed";
+        setTimeout(function () { shareBtn.textContent = "Share my journey"; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { done(document.execCommand("copy")); } catch (e) { done(false); }
+        document.body.removeChild(ta);
+      }
     });
   }
 
