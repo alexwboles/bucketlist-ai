@@ -20,23 +20,38 @@
     return (typeof CATEGORY_LABELS !== "undefined" && CATEGORY_LABELS[c]) ? CATEGORY_LABELS[c] : c;
   }
 
+  function ringSvg(pct) {
+    var r = 34, c = (2 * Math.PI * r);
+    var off = (c * (1 - Math.max(0, Math.min(100, pct)) / 100)).toFixed(1);
+    return '<svg class="ring" viewBox="0 0 84 84" role="img" aria-label="' + pct + '% complete">' +
+      '<circle cx="42" cy="42" r="' + r + '" class="ring-bg"/>' +
+      '<circle cx="42" cy="42" r="' + r + '" class="ring-fg" stroke-dasharray="' + c.toFixed(1) + '" stroke-dashoffset="' + off + '"/>' +
+      "</svg>";
+  }
+
   function renderHeader() {
     var s = stats(state.dreams);
     var sp = spendStats(state.dreams);
+    var yr = new Date().getFullYear();
+    var ytd = state.dreams.filter(function (d) {
+      return d.state === "done" && d.completedOn && String(d.completedOn).indexOf(String(yr)) === 0;
+    }).length;
     document.getElementById("dreamHead").innerHTML =
-      '<div class="hero-stats">' +
-      '<div class="stat"><span class="stat-num">' + s.total + '</span><span class="stat-lbl">dreams</span></div>' +
-      '<div class="stat"><span class="stat-num">' + s.done + '</span><span class="stat-lbl">completed</span></div>' +
-      '<div class="stat"><span class="stat-num">' + s.pct + '%</span><span class="stat-lbl">done</span></div>' +
-      (sp.tracked ? '<div class="stat"><span class="stat-num">$' + sp.actual.toLocaleString() + '</span><span class="stat-lbl">spent living dreams</span></div>' : "") +
-      "</div>" +
-      '<div class="progress"><div class="progress-fill" style="width:' + s.pct + '%"></div></div>';
+      '<div class="hero">' +
+      '<div class="hero-ring">' + ringSvg(s.pct) + '<span class="ring-num">' + s.pct + '%</span></div>' +
+      '<div class="hero-body">' +
+      '<p class="overline">Expedition log · ' + yr + "</p>" +
+      "<h2><em>" + s.done + "</em> of " + s.total + " dreams lived</h2>" +
+      '<p class="hero-sub">' + ytd + " completed this year" +
+      (s.done - ytd > 0 ? " · " + (s.done - ytd) + " from earlier years" : "") + "</p>" +
+      (sp.tracked ? '<p class="hero-spend">Actually spent <b>$' + sp.actual.toLocaleString() + "</b> living dreams</p>" : "") +
+      "</div></div>";
   }
 
   function dreamCard(d, showActions) {
     var html = '<div class="card dream state-' + d.state + '">' +
       '<div class="dream-head"><strong>' + esc(d.title) + "</strong> " +
-      '<span class="pill">' + esc(catLabel(d.cat)) + "</span> " +
+      '<span class="pill cat-' + esc(d.cat || "travel") + '">' + esc(catLabel(d.cat)) + "</span> " +
       '<span class="pill">' + esc(costLabel(d.cost)) + '</span> ' +
       '<span class="pill">' + esc(effortLabel(d.effort)) + "</span> " +
       '<span class="pill state">' + esc(STATE_LABELS[d.state]) + "</span></div>";
@@ -140,7 +155,7 @@
       ["planning", "dreaming", "done"].forEach(function (st) {
         var group = groups[st];
         if (!group.length) return;
-        html += "<h3>" + esc(STATE_LABELS[st]) + " (" + group.length + ")</h3>";
+        html += "<h3>" + esc(STATE_LABELS[st]) + ' <span class="count">' + group.length + "</span></h3>";
         group.forEach(function (d) { html += dreamCard(d, true); });
       });
     }
@@ -271,14 +286,16 @@
       [1, 2, 3].map(function (c) { return '<option value="' + c + '"' + (String(state.fCost) === String(c) ? " selected" : "") + ">" + esc(costLabel(c)) + "</option>"; }).join("") + "</select>" +
       '<select id="fEffort"><option value="">Any effort</option>' +
       [1, 2, 3].map(function (e) { return '<option value="' + e + '"' + (String(state.fEffort) === String(e) ? " selected" : "") + ">" + esc(effortLabel(e)) + "</option>"; }).join("") + "</select>" +
-      '<button id="surprise">Surprise me</button></div>';
+      '<button id="surprise">Surprise me</button></div>' +
+      '<div id="surprisePanel" class="surprise" aria-live="polite"></div>';
 
     var ideas = filterIdeas({ cat: state.fCat, maxCost: state.fCost ? parseInt(state.fCost, 10) : 0, maxEffort: state.fEffort ? parseInt(state.fEffort, 10) : 0, q: state.fQ });
     html += '<p class="muted">' + ideas.length + ' ideas</p><div class="ideagrid">';
     ideas.forEach(function (it, i) {
       var onList = titleOnList(state.dreams, it.t);
       html += '<div class="card idea"><div><strong>' + esc(it.t) + "</strong></div>" +
-        '<div class="muted small">' + esc(catLabel(it.cat)) + " · " + esc(costLabel(it.cost)) + " · " + esc(effortLabel(it.effort)) + "</div>" +
+        '<div><span class="pill cat-' + esc(it.cat) + '">' + esc(catLabel(it.cat)) + "</span></div>" +
+        '<div class="muted small">' + esc(costLabel(it.cost)) + " · " + esc(effortLabel(it.effort)) + "</div>" +
         (onList ? '<span class="pill onlist">On your list</span>'
           : '<button data-addidea="' + i + '">＋ Add to my list</button>') + "</div>";
     });
@@ -299,7 +316,23 @@
     });
     document.getElementById("surprise").addEventListener("click", function () {
       var picks = surpriseMe(3);
-      alert("How about…\n\n" + picks.map(function (p, i) { return (i + 1) + ". " + p.t + " (" + catLabel(p.cat) + ")"; }).join("\n"));
+      var panel = document.getElementById("surprisePanel");
+      host._picks = picks;
+      panel.innerHTML = picks.map(function (p, i) {
+        var onList = titleOnList(state.dreams, p.t);
+        return '<div class="card"><strong>' + esc(p.t) + "</strong>" +
+          '<div><span class="pill cat-' + esc(p.cat) + '">' + esc(catLabel(p.cat)) + "</span></div>" +
+          '<div class="muted small">' + esc(costLabel(p.cost)) + " · " + esc(effortLabel(p.effort)) + "</div>" +
+          (onList ? '<span class="pill onlist">On your list</span>'
+            : '<div class="row"><button data-pickadd="' + i + '">＋ Add to my list</button></div>') + "</div>";
+      }).join("");
+      panel.querySelectorAll("[data-pickadd]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var it = host._picks[parseInt(btn.getAttribute("data-pickadd"), 10)];
+          state.dreams = addDream(state.dreams, { title: it.t, cat: it.cat, cost: it.cost, effort: it.effort });
+          state.tab = "mine"; persist(); renderHeader(); renderTabs(); renderMine();
+        });
+      });
     });
     host.querySelectorAll("[data-addidea]").forEach(function (btn) {
       btn.addEventListener("click", function () {

@@ -170,3 +170,18 @@ check "app.js wires up-next, pin, and on-list controls" node -e "
 
 echo "--- smoke: $pass passed, $fail failed ---"
 exit $((fail>0))
+
+# redesign sweep: expedition hero, surprise panel, category coding
+check "renderHeader uses ring + year line" node -e "
+  const fs=require('fs'), a=fs.readFileSync('js/app.js','utf8');
+  for (const s of ['ringSvg','hero-ring','Expedition log','completed this year']) if(!a.includes(s)) throw new Error('missing '+s);"
+check "surprise uses inline panel, not alert" node -e "
+  const fs=require('fs'), a=fs.readFileSync('js/app.js','utf8');
+  if(!a.includes('surprisePanel')) throw new Error('no surprise panel');
+  if(/alert\(\"How about/.test(a)) throw new Error('alert still used');"
+check "dreamCard emits category pill classes" node -e "
+  const fs=require('fs'), a=fs.readFileSync('js/app.js','utf8');
+  if(!a.includes('cat-\\'+esc(d.cat')) && !a.includes('cat-')) throw new Error('no cat classes');"
+check "css styles hero + surprise + cat pills" node -e "
+  const fs=require('fs'), c=fs.readFileSync('css/style.css','utf8');
+  for (const s of ['.hero','.surprise','.ring-fg','.cat-travel','.cat-adventure','.cat-learn','.cat-give','.cat-create']) if(!c.includes(s)) throw new Error('missing '+s);"
