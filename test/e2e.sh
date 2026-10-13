@@ -154,5 +154,35 @@ flow "actual spend + journal + share end to end" "
   const back=L.restoreFromJSON(L.backupToJSON(ds));
   if(back[0].actualCost!==2800||back[0].journal.length!==1) throw new Error('backup lost new fields');"
 
+flow "suggestNext picks planning + overdue first, pinned wins" "
+  const L=require('./js/logic.js');
+  const ref='2026-10-13';
+  const mk=(id,title,state,target,pinned)=>({id,title,state,targetDate:target||'',pinned:!!pinned});
+  const ds=[
+    mk('a','Dream A','dreaming','2026-11-01'),
+    mk('b','Plan B','planning','2026-12-01'),
+    mk('c','Overdue C','planning','2026-09-01')
+  ];
+  const n1=L.suggestNext(ds,ref);
+  if(!n1||n1.id!=='c') throw new Error('expected overdue planning C, got '+(n1&&n1.id));
+  if(!/overdue/.test(L.nextReason(n1,ref))) throw new Error('reason: '+L.nextReason(n1,ref));
+  const pinned=L.togglePin(ds,'a');
+  const n2=L.suggestNext(pinned,ref);
+  if(!n2||n2.id!=='a') throw new Error('pinned A should win, got '+(n2&&n2.id));
+  if(!/pinned/.test(L.nextReason(n2,ref))) throw new Error('pinned reason missing');
+  const unpinned=L.togglePin(pinned,'a');
+  if(unpinned.filter(d=>d.id==='a')[0].pinned) throw new Error('toggle off failed');
+  if(L.suggestNext([mk('z','Done Z','done','')],ref)!==null) throw new Error('all-done should be null');
+  const back=L.restoreFromJSON(L.backupToJSON(pinned));
+  if(!back.filter(d=>d.id==='a')[0].pinned) throw new Error('backup lost pinned');"
+
+flow "titleOnList matches case-insensitively" "
+  const L=require('./js/logic.js');
+  const ds=[{title:'See the Northern Lights'}];
+  if(!L.titleOnList(ds,'see the northern lights')) throw new Error('case-insensitive fail');
+  if(!L.titleOnList(ds,'  See the Northern Lights ')) throw new Error('trim fail');
+  if(L.titleOnList(ds,'Climb Everest')) throw new Error('false positive');
+  if(L.titleOnList([], 'x')) throw new Error('empty fail');"
+
 echo "--- e2e: $pass passed, $fail failed ---"
 exit $((fail>0))

@@ -14,6 +14,9 @@ Dream it, plan it, do it. Capture your bucket-list dreams, move them from dreami
 - **Dream journal** — dated progress notes on any dream, so the story behind each memory is kept
 - **Actual spend tracking** — log what a dream really cost vs. its cost-band estimate, with an estimated-vs-actual rollup
 - **Share your journey** — one click copies a text summary (done dreams with memories + what's in the works)
+- **Up next** — the app picks the single dream to tackle first (planning beats dreaming, overdue beats soon, pinned wins) and says why, with a one-tap action
+- **Pin to top** — pin a dream so it floats to the top of its state group (survives backup/restore)
+- **Idea bank smarts** — ideas already on your list show an "On your list" badge instead of a duplicate add button
 
 ## Run it
 

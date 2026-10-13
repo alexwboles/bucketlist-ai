@@ -251,6 +251,57 @@ function dreamsToShareText(dreams) {
   return lines.join("\n");
 }
 
+// --- "up next" recommendation -----------------------------------------
+// The dream to tackle next: planning beats dreaming; then overdue > due soon
+// > later > no target; then the earliest target date. Pinned dreams always win.
+function suggestNext(dreams, refDate) {
+  var open = (dreams || []).filter(function (d) { return d.state !== "done"; });
+  if (!open.length) return null;
+  var ranked = open.map(function (d) {
+    var pin = d.pinned ? 1000 : 0;
+    var st = d.state === "planning" ? 100 : 0;
+    var ds = dueStatus(d, refDate);
+    var due = ds === "overdue" ? 40 : ds === "soon" ? 30 : ds === "later" ? 10 : 0;
+    return { d: d, rank: pin + st + due, t: d.targetDate || "9999-99-99" };
+  }).sort(function (a, b) {
+    return (b.rank - a.rank) || (a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+  });
+  return ranked[0].d;
+}
+
+/** Plain-English reason for the "up next" pick. */
+function nextReason(d, refDate) {
+  if (!d) return "";
+  var parts = [];
+  if (d.pinned) parts.push("pinned as your #1");
+  parts.push(d.state === "planning" ? "already in planning" : "still a dream");
+  if (d.targetDate) {
+    var ds = dueStatus(d, refDate);
+    var tg = fmtTarget(d.targetDate);
+    if (ds === "overdue") parts.push("target " + tg + " — overdue");
+    else if (ds === "soon") parts.push("target " + tg + " — coming up soon");
+    else parts.push("target " + tg);
+  }
+  return parts.join(" · ");
+}
+
+// --- pinning ------------------------------------------------------------
+// Pin a dream to the top of its state group.
+function togglePin(dreams, id) {
+  return (dreams || []).map(function (d) {
+    if (d.id !== id) return d;
+    var c = {}; for (var k in d) c[k] = d[k];
+    c.pinned = !c.pinned;
+    return c;
+  });
+}
+
+/** Is this idea-bank title already on the dream list? (case-insensitive) */
+function titleOnList(dreams, title) {
+  var t = String(title || "").trim().toLowerCase();
+  return (dreams || []).some(function (d) { return String(d.title || "").trim().toLowerCase() === t; });
+}
+
 function backupToJSON(dreams) {
   return JSON.stringify({ app: "bucketlist-ai", version: 1, exportedAt: new Date().toISOString(), dreams: dreams || [] }, null, 2);
 }
@@ -278,6 +329,7 @@ function restoreFromJSON(text) {
       targetDate: target, addedAt: d.addedAt || new Date().toISOString(),
       actualCost: (d.actualCost != null && isFinite(parseFloat(d.actualCost)) && parseFloat(d.actualCost) >= 0)
         ? Math.round(parseFloat(d.actualCost) * 100) / 100 : null,
+      pinned: !!d.pinned,
       journal: Array.isArray(d.journal)
         ? d.journal.filter(function (j) { return j && String(j.text || "").trim(); })
             .slice(0, 200).map(function (j) { return { ts: String(j.ts || ""), text: String(j.text).slice(0, 500) }; })
@@ -293,6 +345,7 @@ if (typeof module !== "undefined" && module.exports) {
     costLabel, effortLabel,
     sortDreams, searchDreams, setTargetDate, dueStatus, fmtTarget,
     completionTimeline, backupToJSON, restoreFromJSON,
-    setActualCost, spendStats, addJournalEntry, dreamsToShareText
+    setActualCost, spendStats, addJournalEntry, dreamsToShareText,
+    suggestNext, nextReason, togglePin, titleOnList
   };
 }

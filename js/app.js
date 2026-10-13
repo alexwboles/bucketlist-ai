@@ -76,6 +76,7 @@
         var next = d.state === "dreaming" ? "Start planning →" : "Mark done ✓";
         html += '<button data-adv="' + d.id + '">' + next + "</button>";
       }
+      html += '<button data-pin="' + d.id + '">' + (d.pinned ? "Unpin" : "Pin to top") + "</button>";
       html += '<button class="danger" data-del="' + d.id + '">Remove</button></div>';
     }
     return html + "</div>";
@@ -88,7 +89,18 @@
       ["added", "Oldest first"], ["added-new", "Newest first"], ["title", "Title A–Z"],
       ["target", "Nearest target date"], ["cost", "Cheapest first"], ["effort", "Easiest first"]
     ];
-    var html = '<div class="card mine-tools"><div class="row">' +
+    var html = "";
+    // "Up next" — the single dream the app thinks you should tackle first.
+    var nxt = suggestNext(state.dreams);
+    if (nxt) {
+      var nxtAdv = nxt.state === "dreaming" ? "Start planning →" : "Mark done ✓";
+      html += '<div class="card upnext"><span class="upnext-tag">Up next</span>' +
+        "<strong>" + esc(nxt.title) + "</strong> " +
+        '<span class="pill state">' + esc(STATE_LABELS[nxt.state]) + "</span>" +
+        '<div class="muted small">' + esc(nextReason(nxt)) + "</div>" +
+        '<div class="row"><button data-adv="' + nxt.id + '">' + nxtAdv + "</button></div></div>";
+    }
+    html += '<div class="card mine-tools"><div class="row">' +
       '<input id="dSearch" placeholder="Search my dreams…" value="' + esc(state.dQ) + '" maxlength="80">' +
       '<select id="dSort">' + sortOpts.map(function (o) {
         return '<option value="' + o[0] + '"' + (state.dSort === o[0] ? " selected" : "") + ">" + o[1] + "</option>";
@@ -114,7 +126,11 @@
     dreams = dreams.slice().sort(function (a, b) { return order[a.state] - order[b.state]; });
     var groups = { planning: [], dreaming: [], done: [] };
     dreams.forEach(function (d) { groups[d.state].push(d); });
-    Object.keys(groups).forEach(function (k) { groups[k] = sortDreams(groups[k], state.dSort); });
+    Object.keys(groups).forEach(function (k) {
+      groups[k] = sortDreams(groups[k], state.dSort);
+      // pinned dreams float to the top of their group
+      groups[k].sort(function (a, b) { return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0); });
+    });
     var anyDreams = dreams.length > 0;
     if (!anyDreams) {
       html += state.dQ
@@ -172,6 +188,12 @@
     host.querySelectorAll("[data-del]").forEach(function (btn) {
       btn.addEventListener("click", function () {
         state.dreams = removeDream(state.dreams, btn.getAttribute("data-del"));
+        persist(); renderHeader(); renderMine();
+      });
+    });
+    host.querySelectorAll("[data-pin]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.dreams = togglePin(state.dreams, btn.getAttribute("data-pin"));
         persist(); renderHeader(); renderMine();
       });
     });
@@ -254,9 +276,11 @@
     var ideas = filterIdeas({ cat: state.fCat, maxCost: state.fCost ? parseInt(state.fCost, 10) : 0, maxEffort: state.fEffort ? parseInt(state.fEffort, 10) : 0, q: state.fQ });
     html += '<p class="muted">' + ideas.length + ' ideas</p><div class="ideagrid">';
     ideas.forEach(function (it, i) {
+      var onList = titleOnList(state.dreams, it.t);
       html += '<div class="card idea"><div><strong>' + esc(it.t) + "</strong></div>" +
         '<div class="muted small">' + esc(catLabel(it.cat)) + " · " + esc(costLabel(it.cost)) + " · " + esc(effortLabel(it.effort)) + "</div>" +
-        '<button data-addidea="' + i + '">＋ Add to my list</button></div>';
+        (onList ? '<span class="pill onlist">On your list</span>'
+          : '<button data-addidea="' + i + '">＋ Add to my list</button>') + "</div>";
     });
     html += "</div>";
     host.innerHTML = html;

@@ -160,6 +160,13 @@ check "app.js wires journal, cost, and share controls" node -e "
   const app=fs.readFileSync('js/app.js','utf8');
   for(const fn of ['addJournalEntry(','setActualCost(','spendStats(','dreamsToShareText(','shareJourney']){
     if(app.indexOf(fn)<0) throw new Error('app.js missing '+fn); }"
+check "app.js wires up-next, pin, and on-list controls" node -e "
+  const fs=require('fs');
+  const app=fs.readFileSync('js/app.js','utf8');
+  for(const fn of ['suggestNext(','nextReason(','togglePin(','titleOnList(','data-pin','upnext']){
+    if(app.indexOf(fn)<0) throw new Error('app.js missing '+fn); }
+  const css=fs.readFileSync('css/style.css','utf8');
+  for(const s of ['.upnext','.pill.onlist']) if(css.indexOf(s)<0) throw new Error('css missing '+s);"
 
 echo "--- smoke: $pass passed, $fail failed ---"
 exit $((fail>0))
